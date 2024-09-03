@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 
 def f(x):
     a, B = x
-    return [Levenshtein.distance(a, b) for b in B]
+    return [Levenshtein.distance(a, b) / max(len(a), len(b)) for b in B]
 
 
 def all_pair_distance(A, B, n_thread, progress=True):
@@ -60,22 +60,14 @@ def word2sig(lines, max_length=None):
     elif max_length < np.max(lens):
         warnings.warn("K is {} while strings may " "exceed the maximum length {}".format(max_length, np.max(lens)))
 
-    all_chars = dict()
-    all_chars["counter"] = 0
-    alphabet = ''
+    alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
     def to_ord(c):
-        nonlocal all_chars
-        nonlocal alphabet
-        if not (c in all_chars):
-            alphabet += c
-            all_chars[c] = all_chars["counter"]
-            all_chars["counter"] = all_chars["counter"] + 1
-        return all_chars[c]
+        return ord(c) - ord("a")
 
     x = [[to_ord(c) for c in line] for line in lines]
 
-    return all_chars["counter"], max_length, x, alphabet
+    return len(alphabet), max_length, x, alphabet
 
 
 def ivecs_read(file):

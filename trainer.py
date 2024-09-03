@@ -13,30 +13,33 @@ def train_epoch(args, train_set, device):
     train_loader = torch.utils.data.DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True, num_workers=4
     )
-    if args.dataset == "word":
-        EmbeddingNet = TwoLayerCNN
-    elif args.dataset == "querylog":
-        EmbeddingNet = QuerylogCNN
-    elif args.dataset == "enron":
-        EmbeddingNet = EnronCNN
-    elif args.dataset == "trec":
-        EmbeddingNet = TrecCNN
-    elif args.dataset == "dblp":
-        EmbeddingNet = DBLPCNN
-    elif args.dataset == "uniref":
-        EmbeddingNet = UnirefCNN
-    else:
-        EmbeddingNet = MultiLayerCNN
+    # if args.dataset == "word":
+    # elif args.dataset == "querylog":
+    #     EmbeddingNet = QuerylogCNN
+    # elif args.dataset == "enron":
+    #     EmbeddingNet = EnronCNN
+    # elif args.dataset == "trec":
+    #     EmbeddingNet = TrecCNN
+    # elif args.dataset == "dblp":
+    #     EmbeddingNet = DBLPCNN
+    # elif args.dataset == "uniref":
+    #     EmbeddingNet = UnirefCNN
 
-    if args.epochs == 0 and args.dataset != "word":
-        EmbeddingNet = RandomCNN
+
+    EmbeddingNet = TwoLayerCNN
+    # EmbeddingNet = MultiLayerCNN
+
+    # if args.epochs == 0 and args.dataset != "word":
+    #     EmbeddingNet = RandomCNN
     
     net = EmbeddingNet(C, M, embedding=args.embed_dim, channel=args.channel, mtc_input=args.mtc).to(device)
     model = TripletNet(net).to(device)
     losser = TripletLoss(args)
     model.train()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    loss_history = []
     with tqdm(total=args.epochs * len(train_loader), desc="# training") as p_bar:
         for epoch in range(args.epochs):
             agg = 0.0
@@ -79,4 +82,24 @@ def train_epoch(args, train_set, device):
                         agg_m / (idx + 1),
                     )
                 )
+            p_bar.write(
+                "# Epoch: %3d Time: %.3f Loss: %.3f  r: %.3f m: %.3f"
+                % (
+                    epoch,
+                    time.time() - start_time,
+                    agg / (idx + 1),
+                    agg_r / (idx + 1),
+                    agg_m / (idx + 1),
+                )
+            )
+            loss_history.append(agg / (idx + 1))
+
+        # plot the loss
+    import matplotlib.pyplot as plt
+    plt.plot(loss_history)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss over epochs')
+    plt.savefig('loss.png')
+
     return model

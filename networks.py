@@ -391,8 +391,43 @@ class TwoLayerCNN(nn.Module):
         x = x.view(N, self.flat_size)
         x = self.fc1(x)
 
+        x = F.normalize(x, p=2, dim=1)
         return x
 
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MultiLayerCNN(nn.Module):
+    def __init__(self, C, M, embedding, channel, mtc_input):
+        super(MultiLayerCNN, self).__init__()
+        self.C = C
+        self.M = M
+        self.embedding = embedding
+        self.mtc_input = C if mtc_input else 1
+
+        self.conv1 = nn.Conv1d(self.mtc_input, channel, 3, 1, padding=1, bias=False)
+        self.conv2 = nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False)
+        self.conv3 = nn.Conv1d(channel, channel, 3, 1, padding=1, bias=False)
+        self.flat_size = M // 8 * C // self.mtc_input * channel
+        self.fc1 = nn.Linear(self.flat_size, embedding)
+
+    def forward(self, x):
+        N = len(x)
+        x = x.view(-1, self.mtc_input, self.M)
+
+        x = F.relu(self.conv1(x))
+        x = F.max_pool1d(x, 2)
+
+        x = F.relu(self.conv2(x))
+        x = F.max_pool1d(x, 2)
+
+        x = F.relu(self.conv3(x))
+        x = F.max_pool1d(x, 2)
+
+        x = x.view(N, self.flat_size)
+        x = F.relu(self.fc1(x))
+        x = F.normalize(x, p=2, dim=1)
+        return x
 
 class TripletNet(nn.Module):
     def __init__(self, embedding_net):
@@ -410,20 +445,22 @@ class TripletLoss(nn.Module):
         self.l, self.r = 1, 1
         step = args.epochs // 5
         self.Ls = {
-            step * 0: (0, 10),
-            step * 1: (10, 10),
-            step * 2: (10, 1),
-            step * 3: (5, 0.1),
-            step * 4: (1, 0.01),
+            # step * 0: (0, 10),
+            # step * 1: (10, 10),
+            # step * 2: (10, 1),
+            # step * 3: (5, 0.1),
+            # step * 4: (1, 0.01),
         }
 
 
     def dist(self, ins, pos):
-        return torch.norm(ins - pos, dim=1)
+        return 1 - F.cosine_similarity(ins, pos, dim=1) 
+        # torch.norm(ins - pos, dim=1)
 
     def forward(self, x, lens, dists, epoch):
         if epoch in self.Ls:
             self.l, self.r = self.Ls[epoch]
+            
         anchor, positive, negative = x
         pos_dist, neg_dist, pos_neg_dist = (d.type(torch.float32) for d in dists)
 
