@@ -1,80 +1,52 @@
-# [Convolutional Embedding for Edit Distance (SIGIR 20)](https://arxiv.org/abs/2001.11692)
+# String Embed
 
-In this project, we design and implement a deep learning model, which
-transforms strings into real number vectors  while  preserving  their 
-neighboring relation.  Specifically,  if  the  edit  distance  of two 
-strings x and y is small,  the L2-distance of their embeddings should 
-also  be  small.  With  this  model,  we can transform expensive edit 
-distance  computation to cheaper L2-distance computation and speed up
-string similarity search. 
+Train a small convolutional model that embeds strings into vectors whose cosine distance roughly tracks normalized edit distance.
 
-### before run
-Please install PyTorch refer to [PyTorch](https://pytorch.org/get-started/locally/) 
-and install Levenshtein and transformers via 
-```
-pip install python-Levenshtein
-pip install transformers
+## Install
+
+This repo uses [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync
 ```
 
+For notebook work, install the development dependencies too:
 
-### start training
-
-- train CNN-ED model
-```    
-python main.py --dataset word --nt 1000 --nq 1000 --epochs 20 --save-split --recall
+```bash
+uv sync --group dev
 ```
 
-- test bert embedding
-```
-python main.py --dataset word --nt 1000 --nq 1000 --bert --save-split --recall
-```
+## Train
 
-##### optional arguments:
-      -h, --help            show this help message and exit
-      --dataset             dataset name which is under folder ./data/
-      --nt                  # of training samples
-      --nr                  # of generated training samples
-      --nq                  # of query items
-      --nb                  # of base items
-      --k                   # sampling threshold
-      --epochs              # of epochs
-      --shuffle-seed        seed for shuffle
-      --batch-size          batch size for sgd
-      --test-batch-size     batch size for test
-      --channel CHANNEL     # of channels
-      --embed-dim           output dimension
-      --save-model          save cnn model
-      --save-split          save split data folder
-      --save-embed          save embedding
-      --random-train        generate random training samples and replace
-      --random-append-train generate random training samples and append
-      --embed-dir           embedding save location
-      --recall              print recall
-      --embed EMBED         embedding method
-      --maxl MAXL           max length of strings
-      --no-cuda             disables GPU training
+Run a short training job against the bundled word list:
 
+```bash
+uv run python - <<'PY'
+import torch
 
+from testdata import load_words
+from train import train
 
-# reference
-If you use this code, please cite the following [paper](https://dl.acm.org/doi/abs/10.1145/3397271.3401045)
-```
-@inproceedings{cnned,
-  author    = {Xinyan Dai and
-               Xiao Yan and
-               Kaiwen Zhou and
-               Yuxuan Wang and
-               Han Yang and
-               James Cheng},
-  title     = {Convolutional Embedding for Edit Distance},
-  booktitle = {Proceedings of the 43rd International {ACM} {SIGIR} conference on
-               research and development in Information Retrieval, {SIGIR} 2020, Virtual
-               Event, China, July 25-30, 2020},
-  pages     = {599--608},
-  publisher = {{ACM}},
-  year      = {2020},
-  url       = {https://doi.org/10.1145/3397271.3401045},
-  doi       = {10.1145/3397271.3401045},
-}
+result = train(load_words(limit=256), epochs=5)
+print(result.losses)
+torch.save({"model_state_dict": result.model.state_dict()}, "string_embed.pt")
+PY
 ```
 
+## Query
+
+After saving a checkpoint, query nearest words by embedding distance:
+
+```bash
+uv run string-embed string_embed.pt apple --top 5
+```
+
+Use your own newline-delimited word list with `--words`:
+
+```bash
+uv run string-embed string_embed.pt apple --words words.txt --limit 10000 --top 10
+```
+
+## Dev Container
+
+The dev container includes uv and runs `uv sync --group dev` after creation so the virtual environment is ready when the container starts. If dependencies change, run the same command again.
