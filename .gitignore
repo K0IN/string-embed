@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 *.egg-info/
+.pytest_cache/
+build/
+dist/
 
-*.pt
-*.pth
+# local model exports
+name_minilm/
